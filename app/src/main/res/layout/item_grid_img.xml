@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/relative"
+    android:layout_margin="8sp"
+    android:layout_width="180dp"
+    android:layout_height="200dp">
+
+
+    <ImageView
+        android:id="@+id/imgDoc"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:adjustViewBounds="true"
+        android:scaleType="fitXY"
+        android:background="@drawable/ic_baseline_add_circle_outline_24"/>
+
+    <LinearLayout android:id="@+id/detailLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentBottom="true"
+        android:visibility="gone"
+        android:padding="5dp"
+        android:background="#CDC8C8"
+        android:gravity="right"
+        android:orientation="horizontal">
+
+        <TextView android:id="@+id/docName"
+            android:layout_width="match_parent"
+            android:maxLength="15"
+            android:ellipsize="end"
+            android:gravity="left"
+            tools:text="Test"
+            android:textColor="@android:color/white"
+            android:layout_height="wrap_content"/>
+
+
+    </LinearLayout>
+
+
+</RelativeLayout>

@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "869934961764",
+    "firebase_url": "https://uscan-89ace.firebaseio.com",
+    "project_id": "uscan-89ace",
+    "storage_bucket": "uscan-89ace.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:869934961764:android:f1de92af3602032e50bb71",
+        "android_client_info": {
+          "package_name": "com.src.uscan"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "869934961764-9g3a32sk2ot151bo3rueh6u26chh91gg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_y9vo9Igl3hv-P7rt4M4WVGsZIJD4qAA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "869934961764-9g3a32sk2ot151bo3rueh6u26chh91gg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
