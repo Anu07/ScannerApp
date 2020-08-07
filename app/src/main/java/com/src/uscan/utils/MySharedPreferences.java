@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.Uri;
 
+import androidx.constraintlayout.solver.widgets.Rectangle;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -181,6 +183,8 @@ public class MySharedPreferences {
     {
         return mPref.getFloat(key.name(), defaultValue);
     }
+
+
 
     /**
      * Convenience method for retrieving doubles.
