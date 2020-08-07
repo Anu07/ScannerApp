@@ -54,6 +54,7 @@ dependencies {
     implementation 'com.karumi:dexter:6.2.1'
 
     implementation 'com.github.yalantis:ucrop:2.2.3'
+    implementation 'com.itextpdf:itextg:5.5.10'
 
     //admob
     implementation 'com.google.android.gms:play-services-ads:19.2.0'
@@ -61,5 +62,8 @@ dependencies {
     implementation 'androidx.multidex:multidex:2.0.1'
     implementation 'com.squareup.picasso:picasso:2.71828'
     implementation 'com.theartofdev.edmodo:android-image-cropper:2.8.0'
+    implementation 'com.makeramen:roundedimageview:2.3.0'
+
+    implementation 'com.tom_roush:pdfbox-android:1.8.10.1'
 
 }

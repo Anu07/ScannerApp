@@ -2,17 +2,14 @@ package com.src.uscan.ui
 
 import android.Manifest
 import android.app.SearchManager
-import android.content.ContentUris
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
-import android.database.Cursor
 import android.graphics.Rect
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.util.Log
@@ -32,6 +29,8 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager.VERTICAL
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.ads.AdRequest
 import com.google.android.material.bottomsheet.BottomSheetBehavior
@@ -48,11 +47,11 @@ import com.src.uscan.BuildConfig
 import com.src.uscan.R
 import com.src.uscan.utils.LongPressListener
 import com.src.uscan.utils.MySharedPreferences
-import com.yalantis.ucrop.UCrop
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.bottom_sheet.*
 import kotlinx.android.synthetic.main.custom_toolbar.*
-import java.io.*
+import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
@@ -60,6 +59,9 @@ import kotlin.collections.ArrayList
 
 class MainActivity : AppCompatActivity(), LongPressListener {
 
+    private val OR_GRID: Int = 1
+    private val OR_LIST: Int = 0
+    private var selectedPos: Int = 0
     private val GOOGLE_PHOTOS_PACKAGE_NAME: String? = "com.google.android.apps.photos"
     private var imgUri: String = ""
     private val REQUEST_GALLERY_PHOTO: Int = 112
@@ -85,7 +87,7 @@ class MainActivity : AppCompatActivity(), LongPressListener {
         }
         docsGrid.layoutManager =
             GridLayoutManager(this@MainActivity, calculateNoOfColumns(200f))
-        mAdapter = DocumentAdapter(this@MainActivity, imagePaths, this)
+        mAdapter = DocumentAdapter(this@MainActivity, imagePaths, this,OR_GRID)
         docsGrid.adapter = mAdapter
         docsGrid.addItemDecoration(object : RecyclerView.ItemDecoration() {
             override fun getItemOffsets(
@@ -138,9 +140,10 @@ class MainActivity : AppCompatActivity(), LongPressListener {
                 PopupMenu.OnMenuItemClickListener {
                 override fun onMenuItemClick(item: MenuItem?): Boolean {
                     when (item?.itemId) {
-                        /*R.id.one -> {
+                        R.id.grid -> {
+                            changeLayoutToGrid()
 //                            createDirectory()
-                        }*/
+                        }
                         R.id.two -> {
                             val intent =
                                 Intent(this@MainActivity, GetPhotoActivity::class.java)
@@ -188,7 +191,7 @@ class MainActivity : AppCompatActivity(), LongPressListener {
 
 
         if (intent.hasExtra("image")) {
-            imagePaths?.add(intent.getStringExtra("image"))
+            imagePaths?.add(intent.getStringExtra("image")+","+intent.getStringExtra("image_time"))
             saveImagesInList()
             getImageArrayList()
             initialLayout.visibility = GONE
@@ -218,7 +221,7 @@ class MainActivity : AppCompatActivity(), LongPressListener {
                         newList?.add(searchList[i])
                     }
                 }
-                mAdapter = DocumentAdapter(this@MainActivity, newList, this@MainActivity)
+                mAdapter = DocumentAdapter(this@MainActivity, newList, this@MainActivity, OR_GRID)
                 docsGrid.adapter = mAdapter
 //                mAdapter!!.notifyDataSetChanged()
 
@@ -227,6 +230,14 @@ class MainActivity : AppCompatActivity(), LongPressListener {
         })
 
     }
+
+    private fun changeLayoutToGrid() {
+        docsGrid.layoutManager =
+            LinearLayoutManager(this@MainActivity, VERTICAL,false)
+        mAdapter = DocumentAdapter(this@MainActivity, imagePaths, this,OR_LIST)
+        docsGrid.adapter = mAdapter
+    }
+
 
 
     private fun shareContent() {
@@ -248,9 +259,9 @@ class MainActivity : AppCompatActivity(), LongPressListener {
     }
 
     private fun deleteSelectedFile(): Boolean {
-        imagePaths?.remove(imgUri)
+        imagePaths?.remove(imagePaths?.get(selectedPos))
         MySharedPreferences.getInstance(this).arrayList = imagePaths
-        docsGrid.adapter = DocumentAdapter(this, imagePaths, this)
+        docsGrid.adapter = DocumentAdapter(this, imagePaths, this, OR_GRID)
         return baseContext.deleteFile(imgFile?.name)
     }
 
@@ -470,7 +481,7 @@ class MainActivity : AppCompatActivity(), LongPressListener {
             imageLayout.visibility = VISIBLE
             initialLayout.visibility = GONE
             imagePaths = getImageArrayList()
-            docsGrid.adapter = DocumentAdapter(this@MainActivity, imagePaths, this)
+            docsGrid.adapter = DocumentAdapter(this@MainActivity, imagePaths, this, OR_GRID)
         } else {
             initialLayout.visibility = VISIBLE
         }
@@ -522,8 +533,9 @@ class MainActivity : AppCompatActivity(), LongPressListener {
             HandleFabMargin(false)
             sheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
         }
-        imgUri = imagePaths!![position]
-        imgFile = File(Uri.parse(imagePaths!![position])?.path)
+        selectedPos = position
+        imgUri = imagePaths!![position].split(",")[0]
+        imgFile = File(Uri.parse(imgUri)?.path)
 
         return true
     }
@@ -594,7 +606,25 @@ class MainActivity : AppCompatActivity(), LongPressListener {
     }
 
 
-    private fun createTemporalFile(): File =
-        File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "tempPicture.jpg")
+    fun openPdf(){
+        val file = File(
+            filesDir,"Uscan"
+        )
+        if (file.exists()) {
+            val intent = Intent(Intent.ACTION_VIEW)
+            val uri = Uri.fromFile(file)
+            intent.setDataAndType(uri, "application/pdf")
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
+            try {
+                startActivity(intent)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "No Application available to view pdf",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
 
 }

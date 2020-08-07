@@ -11,6 +11,11 @@
         android:icon="@drawable/ic_baseline_gallery_24"
         android:title="Import from Gallery"/>
     <item
+        android:id="@+id/grid"
+        android:iconTint="@color/colorPrimary"
+        android:icon="@drawable/ic_baseline_grid_on_24"
+        android:title="GridView"/>
+    <item
         android:id="@+id/three"
         android:iconTint="@color/colorPrimary"
         android:icon="@drawable/ic_baseline_share_24"

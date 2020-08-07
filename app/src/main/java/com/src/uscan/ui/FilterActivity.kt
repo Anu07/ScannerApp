@@ -13,6 +13,8 @@ import android.util.Log
 import android.view.Window
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.AdRequest
+import com.itextpdf.text.Document
+import com.itextpdf.text.pdf.PdfWriter
 import com.src.uscan.R
 import kotlinx.android.synthetic.main.activity_filter_preview.*
 import net.alhazmy13.imagefilter.ImageFilter
@@ -43,6 +45,7 @@ class FilterActivity : AppCompatActivity() {
         saveImg.setOnClickListener {
             val intent = Intent(this@FilterActivity, MainActivity::class.java)
             intent.putExtra("image",generateSelectedImageBitMap(selectedPos)!!.toString())
+            intent.putExtra("image_time", System.currentTimeMillis().toString())
             startActivity(intent)
             finish()
         }
