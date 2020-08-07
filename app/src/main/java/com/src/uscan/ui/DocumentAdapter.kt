@@ -1,8 +1,10 @@
 package com.src.uscan.ui
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
+import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.View.GONE
@@ -10,12 +12,15 @@ import android.view.View.VISIBLE
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.squareup.picasso.Picasso
 import com.src.uscan.R
 import com.src.uscan.utils.DateUtils
 import com.src.uscan.utils.LongPressListener
+import com.src.uscan.utils.PdfRequestHandler
 import java.io.File
 
 
@@ -31,6 +36,7 @@ class DocumentAdapter(
 
     inner class ViewHolder(v: View) : RecyclerView.ViewHolder(v) {
         var imageView: ImageView = v.findViewById(R.id.imgDoc) as ImageView
+        var imgpdf: ImageView = v.findViewById(R.id.imgpdf) as ImageView
         var docName: TextView = v.findViewById(R.id.docName) as TextView
         var subDocName: TextView = v.findViewById(R.id.subdocDetail) as TextView
         var relativeLayout: LinearLayout = v.findViewById(R.id.linearParent)
@@ -54,6 +60,7 @@ class DocumentAdapter(
         return mValues?.size!!
     }
 
+    var picassoInstance: Picasso? = null
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         if (mValues!![position].isNotEmpty()) {
@@ -64,6 +71,26 @@ class DocumentAdapter(
             holder.docName.text = File(Uri.parse(mValues!![position].split(",")[0])?.path).name
             holder.subDocName.text = DateUtils.convertTime(mValues!![position].split(",")[1].toLong())
 
+
+            val extension: String = mValues!![position].substring(mValues!![position].lastIndexOf("."))
+
+            if(extension.equals(".pdf")){
+//                holder.imgpdf.visibility = VISIBLE
+//                holder.imageView.visibility = GONE
+
+                picassoInstance = Picasso.Builder(context.applicationContext)
+                    .addRequestHandler(PdfRequestHandler())
+                    .build()
+
+//                picassoInstance!!.load(PdfRequestHandler.SCHEME_PDF+":"+mValues!![position])
+
+                picassoInstance!!.load(PdfRequestHandler.SCHEME_PDF+":"+mValues!![position])
+                    .fit()
+                    .into(holder.imageView)
+            }
+
+
+            holder.docName.text = File(Uri.parse(mValues!![position])?.path).name
             holder.relativeLayout.setOnLongClickListener {
                 mListener.onLongPress(position)
             }
@@ -78,6 +105,8 @@ class DocumentAdapter(
         }
 
     }
+
+
 
 }
 

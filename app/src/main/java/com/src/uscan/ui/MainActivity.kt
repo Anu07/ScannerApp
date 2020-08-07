@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.util.Log
@@ -20,6 +21,7 @@ import android.view.View
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -43,10 +45,12 @@ import com.karumi.dexter.listener.PermissionGrantedResponse
 import com.karumi.dexter.listener.PermissionRequest
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 import com.karumi.dexter.listener.single.PermissionListener
+import com.shockwave.pdfium.PdfiumCore
 import com.src.uscan.BuildConfig
 import com.src.uscan.R
 import com.src.uscan.utils.LongPressListener
 import com.src.uscan.utils.MySharedPreferences
+import com.yalantis.ucrop.UCrop
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.bottom_sheet.*
 import kotlinx.android.synthetic.main.custom_toolbar.*
@@ -192,6 +196,8 @@ class MainActivity : AppCompatActivity(), LongPressListener {
 
         if (intent.hasExtra("image")) {
             imagePaths?.add(intent.getStringExtra("image")+","+intent.getStringExtra("image_time"))
+//            imagePaths?.add(intent.getStringExtra("image"))
+            imagePaths?.add(intent.getStringExtra("PDF"))
             saveImagesInList()
             getImageArrayList()
             initialLayout.visibility = GONE
@@ -539,6 +545,8 @@ class MainActivity : AppCompatActivity(), LongPressListener {
 
         return true
     }
+
+
 
     override fun onPress(position: Int) {
         if (position == -1) {
