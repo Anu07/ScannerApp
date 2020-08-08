@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="?actionBarSize"
+    android:id="@+id/pdfTool"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@color/colorPrimary">
+
+    <ImageView android:id="@+id/backNavigation"
+        android:layout_width="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:src="@drawable/ic_baseline_arrow_back_24"
+        android:layout_height="match_parent"/>
+
+
+    <TextView
+        android:id="@+id/AppHeader"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_marginLeft="45dp"
+        android:maxLength="10"
+        android:ellipsize="end"
+        android:layout_alignParentLeft="true"
+        android:gravity="center_vertical"
+        android:text="Uscan"
+        android:layout_toLeftOf="@+id/shareView"
+        android:textColor="@android:color/white"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/shareView"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:src="@drawable/ic_baseline_share_24"
+        android:layout_toLeftOf="@+id/pdfPreview"/>
+
+
+    <ImageView
+        android:id="@+id/pdfPreview"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_marginLeft="15dp"
+        android:layout_marginRight="15dp"
+        android:src="@drawable/ic_baseline_picture_as_pdf_24"
+        android:layout_toLeftOf="@+id/overflow_menu"/>
+
+    <ImageView
+        android:id="@+id/overflow_menu"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"
+        android:layout_marginRight="10dp"
+        android:src="@drawable/ic_baseline_more_vert" />
+</RelativeLayout>

@@ -41,6 +41,9 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".ui.PreViewActivity"
+            android:screenOrientation="portrait"/>
+
         <activity android:name=".ui.FilterActivity"/>
         <provider
             android:name="androidx.core.content.FileProvider"

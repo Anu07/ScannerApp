@@ -20,18 +20,18 @@ public class MySharedPreferences {
     private SharedPreferences.Editor mEditor;
     private boolean mBulkUpdate = false;
 
-    public void setArrayList(ArrayList<String> listOfURIs) {
+    public void setArrayList(String key,ArrayList<String> listOfURIs) {
         doEdit();
         LinkedHashSet<String> set = new LinkedHashSet<>();
         set.addAll(listOfURIs);
-        mEditor.putStringSet("URIs", set);
+        mEditor.putStringSet(key, set);
         mEditor.commit();
         doCommit();
     }
 
-    public ArrayList<String> getArrayList(){
-        if(mPref.getStringSet("URIs", null)!=null && mPref.getStringSet("URIs", null).size()>0){
-            return new ArrayList<>(mPref.getStringSet("URIs", null));
+    public ArrayList<String> getArrayList(String key){
+        if(mPref.getStringSet(key, null)!=null && mPref.getStringSet(key, null).size()>0){
+            return new ArrayList<>(mPref.getStringSet(key, null));
         }
        return new ArrayList<>();
     }

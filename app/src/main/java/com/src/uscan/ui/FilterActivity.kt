@@ -51,7 +51,7 @@ class FilterActivity : AppCompatActivity() {
             val intent = Intent(this@FilterActivity, MainActivity::class.java)
             intent.putExtra("image",imagestr)
             intent.putExtra("PDF", pdf)
-            intent.putExtra("image",generateSelectedImageBitMap(selectedPos)!!.toString())
+//            intent.putExtra("image",generateSelectedImageBitMap(selectedPos)!!.toString())
             intent.putExtra("image_time", System.currentTimeMillis().toString())
             startActivity(intent)
             finish()
@@ -96,10 +96,6 @@ class FilterActivity : AppCompatActivity() {
         filter4.setOnClickListener {
             selectedPos = 4
             preViewImage.setImageBitmap(ImageFilter.applyFilter(originalMap, ImageFilter.Filter.HDR))
-/*
-            Picasso.get().load(getImageUri(this,ImageFilter.applyFilter(originalMap, ImageFilter.Filter.HDR)))
-                .placeholder(ColorDrawable(R.drawable.ic_baseline_image_plcholder))
-                .into(preViewImage)*/
         }
 
     }
@@ -111,7 +107,7 @@ class FilterActivity : AppCompatActivity() {
         val timeStamp =
             SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
         val imageFileName = "PDF_" + timeStamp + "_"
-        val root = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        val root = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
         val file = File(root, "$imageFileName.pdf")
         if (file.exists()) file.delete()
         try {
@@ -134,13 +130,6 @@ class FilterActivity : AppCompatActivity() {
         Log.i("Pdf", "Filepath" +path+".pdf")
         document.close()
         return file.path
-    }
-
-
-    private fun getBitmapFromUri(bMapUri: Uri?): Bitmap? {
-        val options = BitmapFactory.Options()
-        options.inPreferredConfig = Bitmap.Config.ARGB_8888
-        return BitmapFactory.decodeFile(getRealPathFromURI(this,bMapUri), options)
     }
 
 
@@ -188,26 +177,6 @@ class FilterActivity : AppCompatActivity() {
             e.printStackTrace()
         }
         return Uri.fromFile(file)
-    }
-
-
-    private fun getImageUri(
-        context: Context,
-        inImage: Bitmap
-    ): Uri? {
-        val bytes = ByteArrayOutputStream()
-        inImage.compress(Bitmap.CompressFormat.JPEG, 100, bytes)
-        val path = try {
-            MediaStore.Images.Media.insertImage(
-                context.contentResolver,
-                inImage,
-                "Title",
-                null
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return Uri.parse(path as String?)
     }
 
 

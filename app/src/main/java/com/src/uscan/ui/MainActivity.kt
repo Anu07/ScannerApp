@@ -1,16 +1,13 @@
 package com.src.uscan.ui
 
-import android.Manifest
 import android.app.SearchManager
-import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.DialogInterface
 import android.content.Intent
 import android.graphics.Rect
 import android.net.Uri
+import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Environment
-import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.util.DisplayMetrics
 import android.util.Log
@@ -21,8 +18,6 @@ import android.view.View
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
@@ -37,20 +32,13 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.ads.AdRequest
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.karumi.dexter.Dexter
-import com.karumi.dexter.MultiplePermissionsReport
-import com.karumi.dexter.PermissionToken
-import com.karumi.dexter.listener.PermissionDeniedResponse
-import com.karumi.dexter.listener.PermissionGrantedResponse
-import com.karumi.dexter.listener.PermissionRequest
-import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-import com.karumi.dexter.listener.single.PermissionListener
-import com.shockwave.pdfium.PdfiumCore
 import com.src.uscan.BuildConfig
 import com.src.uscan.R
+import com.src.uscan.UscanApplication.Companion.applicationContext
+import com.src.uscan.room.DatabaseClient
+import com.src.uscan.room.PDFEntity
 import com.src.uscan.utils.LongPressListener
-import com.src.uscan.utils.MySharedPreferences
-import com.yalantis.ucrop.UCrop
+import com.src.uscan.utils.RoomOperationCompleted
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.bottom_sheet.*
 import kotlinx.android.synthetic.main.custom_toolbar.*
@@ -61,24 +49,27 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 
-class MainActivity : AppCompatActivity(), LongPressListener {
+class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationCompleted {
 
+    private var calledOnce: Boolean = false
+    private var imagesExistingList: ArrayList<PDFEntity>? = ArrayList()
+    var imagePath: String? = ""
+    var imageTime: String? = ""
+    var pdf: String? = ""
     private val OR_GRID: Int = 1
     private val OR_LIST: Int = 0
     private var selectedPos: Int = 0
-    private val GOOGLE_PHOTOS_PACKAGE_NAME: String? = "com.google.android.apps.photos"
     private var imgUri: String = ""
-    private val REQUEST_GALLERY_PHOTO: Int = 112
     private val REQUEST_TAKE_PHOTO: Int = 111
     var photoFile: File? = null
     var mAdapter: DocumentAdapter? = null
-    var imagePaths: ArrayList<String>? = ArrayList()
     var imgFile: File? = null
-
+    val TAG = MainActivity::class.java.name
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
         findViewById<FloatingActionButton>(R.id.fab).setOnClickListener { view ->
 
 //            selectImage()
@@ -89,39 +80,7 @@ class MainActivity : AppCompatActivity(), LongPressListener {
                 REQUEST_TAKE_PHOTO
             )
         }
-        docsGrid.layoutManager =
-            GridLayoutManager(this@MainActivity, calculateNoOfColumns(200f))
-        mAdapter = DocumentAdapter(this@MainActivity, imagePaths, this,OR_GRID)
-        docsGrid.adapter = mAdapter
-        docsGrid.addItemDecoration(object : RecyclerView.ItemDecoration() {
-            override fun getItemOffsets(
-                outRect: Rect,
-                view: View,
-                parent: RecyclerView,
-                state: RecyclerView.State
-            ) {
-                val position: Int =
-                    parent.getChildAdapterPosition(view) // item position
-                val spanCount = 2
-                val spacing = 20 //spacing between views in grid
-                if (position >= 0) {
-                    val column = position % spanCount // item column
-                    outRect.left =
-                        spacing - column * spacing / spanCount // spacing - column * ((1f / spanCount) * spacing)
-                    outRect.right =
-                        (column + 1) * spacing / spanCount // (column + 1) * ((1f / spanCount) * spacing)
-                    if (position < spanCount) { // top edge
-                        outRect.top = spacing
-                    }
-                    outRect.bottom = spacing // item bottom
-                } else {
-                    outRect.left = 0
-                    outRect.right = 0
-                    outRect.top = 0
-                    outRect.bottom = 0
-                }
-            }
-        })
+        docGridInitialize()
 
         //bottom Sheet controls
         share.setOnClickListener {
@@ -178,10 +137,6 @@ class MainActivity : AppCompatActivity(), LongPressListener {
             deleteDialog()
         }
 
-        move.setOnClickListener {
-
-        }
-
         more.setOnClickListener {
             progress.visibility = VISIBLE
             hideBottomsheet()
@@ -192,14 +147,13 @@ class MainActivity : AppCompatActivity(), LongPressListener {
                 )
             )
         }
+        getRoomImagesList(null)
 
 
         if (intent.hasExtra("image")) {
-            imagePaths?.add(intent.getStringExtra("image")+","+intent.getStringExtra("image_time"))
-//            imagePaths?.add(intent.getStringExtra("image"))
-            imagePaths?.add(intent.getStringExtra("PDF"))
-            saveImagesInList()
-            getImageArrayList()
+
+            saveToRoom()
+//            saveImagesInList()
             initialLayout.visibility = GONE
             mAdapter?.notifyDataSetChanged()
             imageLayout.visibility = VISIBLE
@@ -214,16 +168,16 @@ class MainActivity : AppCompatActivity(), LongPressListener {
         val searchManager: SearchManager =
             getSystemService(Context.SEARCH_SERVICE) as SearchManager
         searchSV.setSearchableInfo(searchManager.getSearchableInfo(componentName))
-        var searchList = MySharedPreferences.getInstance(this@MainActivity).arrayList
+        var searchList = imagesExistingList
         searchSV.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(s: String?): Boolean {
                 return false
             }
 
             override fun onQueryTextChange(s: String): Boolean {
-                val newList: ArrayList<String> = ArrayList()
+                val newList: ArrayList<PDFEntity> = ArrayList()
                 for (i in 0 until searchList?.size!!) {
-                    if (!searchList[i].isNullOrBlank() && searchList[i].contains(s.toLowerCase())) {
+                    if (!searchList[i].path.isNullOrBlank() && searchList[i].path.contains(s.toLowerCase())) {
                         newList?.add(searchList[i])
                     }
                 }
@@ -237,13 +191,72 @@ class MainActivity : AppCompatActivity(), LongPressListener {
 
     }
 
-    private fun changeLayoutToGrid() {
+    private fun docGridInitialize() {
         docsGrid.layoutManager =
-            LinearLayoutManager(this@MainActivity, VERTICAL,false)
-        mAdapter = DocumentAdapter(this@MainActivity, imagePaths, this,OR_LIST)
+            GridLayoutManager(this@MainActivity, calculateNoOfColumns(200f))
+        mAdapter = DocumentAdapter(this@MainActivity, imagesExistingList, this, OR_GRID)
         docsGrid.adapter = mAdapter
+        docsGrid.addItemDecoration(object : RecyclerView.ItemDecoration() {
+            override fun getItemOffsets(
+                outRect: Rect,
+                view: View,
+                parent: RecyclerView,
+                state: RecyclerView.State
+            ) {
+                val position: Int =
+                    parent.getChildAdapterPosition(view) // item position
+                val spanCount = 2
+                val spacing = 20 //spacing between views in grid
+                if (position >= 0) {
+                    val column = position % spanCount // item column
+                    outRect.left =
+                        spacing - column * spacing / spanCount // spacing - column * ((1f / spanCount) * spacing)
+                    outRect.right =
+                        (column + 1) * spacing / spanCount // (column + 1) * ((1f / spanCount) * spacing)
+                    if (position < spanCount) { // top edge
+                        outRect.top = spacing
+                    }
+                    outRect.bottom = spacing // item bottom
+                } else {
+                    outRect.left = 0
+                    outRect.right = 0
+                    outRect.top = 0
+                    outRect.bottom = 0
+                }
+            }
+        })
     }
 
+    private fun getRoomImagesList(imagePath: String?) {
+        val ut = RoomGetTask(imagePath)
+        ut.delegate = this@MainActivity
+        ut.execute()
+    }
+
+    private fun saveToRoom() {
+        //creating a pdf entity
+        imagePath = intent.getStringExtra("image")
+        imageTime = intent.getStringExtra("image_time")
+        pdf = intent.getStringExtra("PDF")
+        val ut = RoomTask(imagePath, imageTime, pdf)
+        ut.execute()
+    }
+
+
+    private fun deleteFromRoom(imgUri: String) {
+        //creating a pdf entity
+        val ut = RoomDeleteTask(imgUri)
+        ut.delegate = this@MainActivity
+        ut.execute()
+    }
+
+
+    private fun changeLayoutToGrid() {
+        docsGrid.layoutManager =
+            LinearLayoutManager(this@MainActivity, VERTICAL, false)
+        mAdapter = DocumentAdapter(this@MainActivity, imagesExistingList, this, OR_LIST)
+        docsGrid.adapter = mAdapter
+    }
 
 
     private fun shareContent() {
@@ -265,9 +278,8 @@ class MainActivity : AppCompatActivity(), LongPressListener {
     }
 
     private fun deleteSelectedFile(): Boolean {
-        imagePaths?.remove(imagePaths?.get(selectedPos))
-        MySharedPreferences.getInstance(this).arrayList = imagePaths
-        docsGrid.adapter = DocumentAdapter(this, imagePaths, this, OR_GRID)
+        deleteFromRoom(imgUri)
+        docsGrid.adapter = DocumentAdapter(this, imagesExistingList, this, OR_GRID)
         return baseContext.deleteFile(imgFile?.name)
     }
 
@@ -276,14 +288,13 @@ class MainActivity : AppCompatActivity(), LongPressListener {
         builder.setCancelable(false);
         builder.setTitle("Delete");
         builder.setMessage("Are you sure you want to delete?");
-        builder.setPositiveButton("continue", DialogInterface.OnClickListener { dialog, which ->
+        builder.setPositiveButton("continue") { dialog, which ->
             Log.i("Delete", "Result" + deleteSelectedFile())
             mAdapter?.notifyDataSetChanged()
-        });
-        builder.setNegativeButton("Cancel", DialogInterface.OnClickListener { dialog, which ->
+        };
+        builder.setNegativeButton("Cancel") { dialog, which ->
             finish()
-
-        });
+        };
         builder.show()
     }
 
@@ -326,106 +337,6 @@ class MainActivity : AppCompatActivity(), LongPressListener {
     }
 
 
-    private fun selectImage() {
-        val options =
-            arrayOf<CharSequence>("Take Photo", "Choose from Gallery", "Cancel")
-        val builder: AlertDialog.Builder = AlertDialog.Builder(this@MainActivity)
-        builder.setTitle("Add Photo!")
-        builder.setItems(options) { dialog, item ->
-            when {
-                options[item] == "Take Photo" -> {
-                    Dexter.withContext(this)
-                        .withPermission(Manifest.permission.CAMERA)
-                        .withListener(object : PermissionListener {
-                            override fun onPermissionGranted(p0: PermissionGrantedResponse?) {
-                                dispatchTakePictureIntent()
-                            }
-
-                            override fun onPermissionRationaleShouldBeShown(
-                                p0: PermissionRequest?,
-                                p1: PermissionToken?
-                            ) {
-                            }
-
-                            override fun onPermissionDenied(p0: PermissionDeniedResponse?) {
-                            }
-
-                        }).check()
-                }
-                options[item] == "Choose from Gallery" -> {
-                    dispatchGalleryIntent()
-                }
-                options[item] == "Cancel" -> {
-                    dialog.dismiss()
-                }
-            }
-        }
-        builder.show()
-    }
-
-
-    /**
-     * Capture image from camera
-     */
-    private fun dispatchTakePictureIntent() {
-        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        if (takePictureIntent.resolveActivity(packageManager) != null) {
-            // Create the File where the photo should go
-            try {
-                photoFile = createImageFile()
-            } catch (ex: IOException) {
-                ex.printStackTrace()
-                // Error occurred while creating the File
-            }
-            if (photoFile != null) {
-                val photoURI: Uri = FileProvider.getUriForFile(
-                    this,
-                    BuildConfig.APPLICATION_ID + ".provider",
-                    photoFile!!
-                )
-//                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
-//                startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO)
-                val intent =
-                    Intent(this, GetPhotoActivity::class.java)
-                startActivityForResult(
-                    intent,
-                    REQUEST_TAKE_PHOTO
-                )
-            }
-        }
-    }
-
-
-    /**
-     * Select image fro gallery
-     */
-    private fun dispatchGalleryIntent() {
-        Dexter.withContext(this)
-            .withPermissions(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ).withListener(object : MultiplePermissionsListener {
-                override fun onPermissionsChecked(report: MultiplePermissionsReport?) {
-                    val pickPhoto = Intent(
-                        Intent.ACTION_PICK,
-                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI
-                    )
-                    pickPhoto.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    pickPhoto.setPackage(GOOGLE_PHOTOS_PACKAGE_NAME);
-                    startActivityForResult(pickPhoto, REQUEST_GALLERY_PHOTO)
-
-                }
-
-                override fun onPermissionRationaleShouldBeShown(
-                    permissions: List<PermissionRequest?>?,
-                    token: PermissionToken?
-                ) { /* ... */
-                }
-            }).check()
-
-    }
-
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 //        if (resultCode == Activity.RESULT_OK) {
@@ -434,7 +345,7 @@ class MainActivity : AppCompatActivity(), LongPressListener {
                 //                val picBitmap: Bitmap = BitmapFactory.decodeFile(photoFile?.path)
 //                    UCrop.of(Uri.fromFile(photoFile),Uri.fromFile(getExternalFilesDir(Environment.DIRECTORY_DCIM)))
 //                        .start(this);
-                if(data!=null){
+                if (data != null) {
                     var resultUri = File(data!!.getStringExtra("filePath"))
 //                     = UCrop.getOutput(data!!)
                     var intent = Intent(this@MainActivity, FilterActivity::class.java)
@@ -480,44 +391,7 @@ class MainActivity : AppCompatActivity(), LongPressListener {
             hideBottomsheet()
         }
 
-        if (MySharedPreferences.getInstance(this@MainActivity).arrayList != null && MySharedPreferences.getInstance(
-                this@MainActivity
-            ).arrayList.isNotEmpty()
-        ) {
-            imageLayout.visibility = VISIBLE
-            initialLayout.visibility = GONE
-            imagePaths = getImageArrayList()
-            docsGrid.adapter = DocumentAdapter(this@MainActivity, imagePaths, this, OR_GRID)
-        } else {
-            initialLayout.visibility = VISIBLE
-        }
 
-    }
-
-    private fun getImageArrayList(): java.util.ArrayList<String>? {
-        var arr = MySharedPreferences.getInstance(this@MainActivity).arrayList
-        if(arr.contains("")){
-            Collections.swap(arr,arr.indexOf(""),arr.lastIndex)
-        }
-        Log.i("Last","item swapped"+arr[arr.lastIndex])
-        return arr
-    }
-
-    private fun saveImagesInList() {
-        if (MySharedPreferences.getInstance(this@MainActivity).arrayList.isNullOrEmpty()) {
-            MySharedPreferences.getInstance(this@MainActivity).arrayList = imagePaths
-            initialLayout.visibility = VISIBLE
-        } else {
-            initialLayout.visibility = GONE
-            imageLayout.visibility = VISIBLE
-            var imagePathsTemp: ArrayList<String> =
-                MySharedPreferences.getInstance(this@MainActivity).arrayList
-            imagePathsTemp.addAll(imagePaths!!)
-            imagePathsTemp.add("")
-            MySharedPreferences.getInstance(this@MainActivity).arrayList = imagePathsTemp
-            Log.i("Size", "" + imagePathsTemp.lastIndex)
-
-        }
     }
 
 
@@ -540,28 +414,15 @@ class MainActivity : AppCompatActivity(), LongPressListener {
             sheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
         }
         selectedPos = position
-        imgUri = imagePaths!![position].split(",")[0]
+        imgUri = imagesExistingList!![position].path
         imgFile = File(Uri.parse(imgUri)?.path)
 
         return true
     }
 
 
-
     override fun onPress(position: Int) {
-        if (position == -1) {
-            val intent =
-                Intent(this@MainActivity, GetPhotoActivity::class.java)
-            intent.putExtra("Gallery", "Gallery")
-            startActivityForResult(
-                intent,
-                REQUEST_TAKE_PHOTO
-            )
-        }
-//        var intent = Intent(Intent.ACTION_GET_CONTENT);
-//        intent.type = "file/pdf";
-//        intent.addCategory(Intent.CATEGORY_OPENABLE)
-//        startActivityForResult(intent, 114);
+        imagesExistingList?.get(position)?.pdfPath?.let { openPdf(it) }
     }
 
     private fun HandleFabMargin(b: Boolean) {
@@ -596,41 +457,119 @@ class MainActivity : AppCompatActivity(), LongPressListener {
         startActivity(Intent.createChooser(intent, getString(R.string.action_share)))
     }
 
-    fun createDirectory() {
-        val file = File(
-            Environment.getExternalStorageDirectory().toString() + "/Uscan_more"
+    fun openPdf(pdfPath: String) {
+        startActivity(
+            Intent(this@MainActivity, PreViewActivity::class.java).putExtra(
+                "PDF",
+                pdfPath
+            )
         )
-        val success = true
-        if (!file.exists()) {
-            Toast.makeText(
-                applicationContext, "Directory does not exist, create it",
-                Toast.LENGTH_LONG
-            ).show()
+    }
+
+    internal open class RoomTask(
+        imagePath: String?,
+        imageTime: String?,
+        pdf: String?
+    ) :
+        AsyncTask<String?, Void?, Void?>() {
+        var image_Path: String? = imagePath
+        var image_Time: String? = imageTime
+        var pdf_: String? = pdf
+        var delegate: RoomOperationCompleted? = null
+
+        override fun doInBackground(vararg strings: String?): Void? {
+            val pdf = PDFEntity()
+            pdf.path = image_Path.toString()
+            pdf.time = image_Time.toString()
+            pdf.pdfPath = pdf_.toString()
+
+            DatabaseClient.getInstance(applicationContext())?.appDatabase
+                ?.pdfDao()?.insert(pdf)
+
+            Log.i(
+                "RoomTask",
+                "Check DB" + DatabaseClient.getInstance(applicationContext())?.appDatabase
+                    ?.pdfDao()?.getAll()
+            )
+            return null
         }
-        Toast.makeText(
-            application, "Directory created",
-            Toast.LENGTH_LONG
-        ).show()
+
+        override fun onPostExecute(aVoid: Void?) {
+            super.onPostExecute(aVoid)
+            delegate?.processFinish(null)
+        }
     }
 
 
-    fun openPdf(){
-        val file = File(
-            filesDir,"Uscan"
-        )
-        if (file.exists()) {
-            val intent = Intent(Intent.ACTION_VIEW)
-            val uri = Uri.fromFile(file)
-            intent.setDataAndType(uri, "application/pdf")
-            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
-            try {
-                startActivity(intent)
-            } catch (e: ActivityNotFoundException) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "No Application available to view pdf",
-                    Toast.LENGTH_LONG
-                ).show()
+    internal open class RoomDeleteTask(
+        imgPath: String?
+    ) :
+        AsyncTask<String?, Void?, Void?>() {
+        var image_Path: String? = imgPath
+        var delegate: RoomOperationCompleted? = null
+
+        override fun doInBackground(vararg strings: String?): Void? {
+            val pdf = PDFEntity()
+            pdf.path = image_Path.toString()
+
+            DatabaseClient.getInstance(applicationContext())?.appDatabase
+                ?.pdfDao()?.delete(pdf)
+
+            Log.i(
+                "RoomTask",
+                "Check DB" + DatabaseClient.getInstance(applicationContext())?.appDatabase
+                    ?.pdfDao()?.getAll()
+            )
+            return null
+        }
+
+        override fun onPostExecute(aVoid: Void?) {
+            super.onPostExecute(aVoid)
+            delegate?.processFinish(null);
+
+        }
+    }
+
+
+    internal open class RoomGetTask(
+        imgPath: String?
+    ) :
+        AsyncTask<String?, Void?, ArrayList<PDFEntity>?>() {
+        var image_Path: String? = imgPath
+        var delegate: RoomOperationCompleted? = null
+
+        override fun doInBackground(vararg strings: String?): ArrayList<PDFEntity>? {
+            if (image_Path!=null) {
+                val pdf = PDFEntity()
+                pdf.path = image_Path.toString()
+                return DatabaseClient.getInstance(applicationContext())?.appDatabase
+                    ?.pdfDao()?.findSpecificEvent(pdf.path) as ArrayList
+            }
+            return DatabaseClient.getInstance(applicationContext())?.appDatabase
+                ?.pdfDao()?.getAll() as ArrayList
+        }
+
+        override fun onPostExecute(aVoid: ArrayList<PDFEntity>?) {
+            super.onPostExecute(aVoid)
+            delegate?.processFinish(aVoid)
+        }
+    }
+
+    override fun processFinish(output: ArrayList<PDFEntity>?) {
+        if (output.isNullOrEmpty() && !calledOnce) {
+            calledOnce = !calledOnce
+            getRoomImagesList(null)
+        } else if (output?.isNotEmpty()!!) {
+            imagesExistingList = output
+            if (imagesExistingList?.isEmpty()!!
+            ) {
+                initialLayout.visibility = VISIBLE
+
+            } else {
+                imageLayout.visibility = VISIBLE
+                initialLayout.visibility = GONE
+                docsGrid.adapter =
+                    DocumentAdapter(this@MainActivity, imagesExistingList, this, OR_GRID)
             }
         }
     }
