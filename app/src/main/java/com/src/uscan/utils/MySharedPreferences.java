@@ -52,7 +52,8 @@ public class MySharedPreferences {
         PKGDATE,
         CONTACT,
         QUIZ_DONE,
-        FIRE_TOKEN,LATLNG
+        FIRE_TOKEN,LATLNG,
+        ORIENTATION_SELECTED
     }
 
     private MySharedPreferences(Context context)

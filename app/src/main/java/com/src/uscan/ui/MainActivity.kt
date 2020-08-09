@@ -3,18 +3,16 @@ package com.src.uscan.ui
 import android.app.SearchManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.Rect
 import android.net.Uri
 import android.os.AsyncTask
 import android.os.Bundle
 import android.os.Environment
-import android.provider.MediaStore
+import android.os.Handler
 import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
 import android.view.View.GONE
 import android.view.View.VISIBLE
 import android.widget.FrameLayout
@@ -27,8 +25,6 @@ import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager.VERTICAL
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.ads.AdRequest
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -38,9 +34,12 @@ import com.src.uscan.UscanApplication.Companion.applicationContext
 import com.src.uscan.room.DatabaseClient
 import com.src.uscan.room.PDFEntity
 import com.src.uscan.utils.LongPressListener
+import com.src.uscan.utils.MySharedPreferences
 import com.src.uscan.utils.RoomOperationCompleted
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.bottom_share_sheet.*
 import kotlinx.android.synthetic.main.bottom_sheet.*
+import kotlinx.android.synthetic.main.bottom_sheet.bottom_sheet
 import kotlinx.android.synthetic.main.custom_toolbar.*
 import java.io.File
 import java.io.IOException
@@ -50,7 +49,9 @@ import kotlin.collections.ArrayList
 
 
 class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationCompleted {
-
+    private var pdfPath: String=""
+    private var orientation: Int = 0
+    var popup: PopupMenu? = null
     private var calledOnce: Boolean = false
     private var imagesExistingList: ArrayList<PDFEntity>? = ArrayList()
     var imagePath: String? = ""
@@ -80,31 +81,66 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
                 REQUEST_TAKE_PHOTO
             )
         }
+        MySharedPreferences.getInstance(this@MainActivity)
+            .put(MySharedPreferences.Key.ORIENTATION_SELECTED, orientation)
         docGridInitialize()
 
         //bottom Sheet controls
-        share.setOnClickListener {
-            shareContent(imgUri)
+        shareApp.setOnClickListener {
+            hideBottomsheet()
+            var sheetBehavior = BottomSheetBehavior.from(bottom_share_sheet);
+            if (sheetBehavior.state != BottomSheetBehavior.STATE_EXPANDED) {
+                sheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED;
+                HandleFabMargin(true)
+            } else {
+                HandleFabMargin(false)
+                sheetBehavior.setState(BottomSheetBehavior.STATE_COLLAPSED);
+            }
+        }
+
+
+        sharePdf.setOnClickListener {
+            hideBottomShareSheet()
+            shareContent()          //share PDF
         }
 
         overflow_menu.setOnClickListener {
             //Creating the instance of PopupMenu
 
             //Creating the instance of PopupMenu
-            val popup = PopupMenu(this@MainActivity, overflow_menu)
+            popup = PopupMenu(this@MainActivity, overflow_menu)
             //Inflating the Popup using xml file
             //Inflating the Popup using xml file
-            popup.menuInflater.inflate(R.menu.menu_pop, popup.getMenu())
+            popup?.menuInflater?.inflate(R.menu.menu_pop, popup?.getMenu())
 
-            //registering popup with OnMenuItemClickListener
 
-            //registering popup with OnMenuItemClickListener
-            popup.setOnMenuItemClickListener(object : MenuItem.OnMenuItemClickListener,
+            val item: MenuItem? = popup?.menu?.getItem(1) // here itemIndex is int
+
+            if (MySharedPreferences.getInstance(this@MainActivity)
+                    .getInt(MySharedPreferences.Key.ORIENTATION_SELECTED, -1) == 0
+            ) {
+                orientation = OR_LIST
+                item?.title = "GridView"
+                docsGrid.layoutManager =
+                    LinearLayoutManager(this@MainActivity)
+                mAdapter = DocumentAdapter(this@MainActivity, imagesExistingList, this, OR_LIST)
+                docsGrid.adapter = mAdapter
+
+            } else {
+                orientation = OR_GRID
+                item?.title = "ListView"
+                docsGrid.layoutManager =
+                    GridLayoutManager(this@MainActivity, 3)
+                mAdapter = DocumentAdapter(this@MainActivity, imagesExistingList, this, OR_GRID)
+                docsGrid.adapter = mAdapter
+            }
+
+            popup?.setOnMenuItemClickListener(object : MenuItem.OnMenuItemClickListener,
                 PopupMenu.OnMenuItemClickListener {
                 override fun onMenuItemClick(item: MenuItem?): Boolean {
                     when (item?.itemId) {
                         R.id.grid -> {
-                            changeLayoutToGrid()
+                            changeLayoutToGrid(item)
 //                            createDirectory()
                         }
                         R.id.two -> {
@@ -116,16 +152,13 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
                                 REQUEST_TAKE_PHOTO
                             )
                         }
-                        R.id.three -> {
-                            shareContent()
-                        }
                     }
                     return true
                 }
 
             })
 
-            popup.show() //showing popup menu
+            popup?.show() //showing popup menu
 
         }
 
@@ -154,6 +187,9 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
 
             saveToRoom()
 //            saveImagesInList()
+            Handler().postDelayed({
+                getRoomImagesList(null)
+            }, 2000)
             initialLayout.visibility = GONE
             mAdapter?.notifyDataSetChanged()
             imageLayout.visibility = VISIBLE
@@ -192,39 +228,11 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
     }
 
     private fun docGridInitialize() {
+        orientation = OR_LIST
         docsGrid.layoutManager =
-            GridLayoutManager(this@MainActivity, calculateNoOfColumns(200f))
-        mAdapter = DocumentAdapter(this@MainActivity, imagesExistingList, this, OR_GRID)
+            LinearLayoutManager(this@MainActivity)
+        mAdapter = DocumentAdapter(this@MainActivity, imagesExistingList, this, orientation)
         docsGrid.adapter = mAdapter
-        docsGrid.addItemDecoration(object : RecyclerView.ItemDecoration() {
-            override fun getItemOffsets(
-                outRect: Rect,
-                view: View,
-                parent: RecyclerView,
-                state: RecyclerView.State
-            ) {
-                val position: Int =
-                    parent.getChildAdapterPosition(view) // item position
-                val spanCount = 2
-                val spacing = 20 //spacing between views in grid
-                if (position >= 0) {
-                    val column = position % spanCount // item column
-                    outRect.left =
-                        spacing - column * spacing / spanCount // spacing - column * ((1f / spanCount) * spacing)
-                    outRect.right =
-                        (column + 1) * spacing / spanCount // (column + 1) * ((1f / spanCount) * spacing)
-                    if (position < spanCount) { // top edge
-                        outRect.top = spacing
-                    }
-                    outRect.bottom = spacing // item bottom
-                } else {
-                    outRect.left = 0
-                    outRect.right = 0
-                    outRect.top = 0
-                    outRect.bottom = 0
-                }
-            }
-        })
     }
 
     private fun getRoomImagesList(imagePath: String?) {
@@ -246,20 +254,35 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
     private fun deleteFromRoom(imgUri: String) {
         //creating a pdf entity
         val ut = RoomDeleteTask(imgUri)
-        ut.delegate = this@MainActivity
         ut.execute()
     }
 
 
-    private fun changeLayoutToGrid() {
-        docsGrid.layoutManager =
-            LinearLayoutManager(this@MainActivity, VERTICAL, false)
-        mAdapter = DocumentAdapter(this@MainActivity, imagesExistingList, this, OR_LIST)
-        docsGrid.adapter = mAdapter
+    private fun changeLayoutToGrid(item: MenuItem) {
+        if (popup != null && orientation == OR_LIST) {
+
+            orientation = OR_GRID
+            item?.title = "ListView"
+            MySharedPreferences.getInstance(this@MainActivity)
+                .put(MySharedPreferences.Key.ORIENTATION_SELECTED, orientation)
+            docsGrid.layoutManager =
+                GridLayoutManager(this@MainActivity, 3)
+            mAdapter = DocumentAdapter(this@MainActivity, imagesExistingList, this, orientation)
+            docsGrid.adapter = mAdapter
+        } else {
+            orientation = OR_LIST
+            MySharedPreferences.getInstance(this@MainActivity)
+                .put(MySharedPreferences.Key.ORIENTATION_SELECTED, orientation)
+            item?.title = "GridView"
+            docsGrid.layoutManager =
+                LinearLayoutManager(this@MainActivity)
+            mAdapter = DocumentAdapter(this@MainActivity, imagesExistingList, this, orientation)
+            docsGrid.adapter = mAdapter
+        }
+
     }
 
-
-    private fun shareContent() {
+    private fun shareAppContent() {
         try {
             val shareIntent = Intent(Intent.ACTION_SEND)
             shareIntent.type = "text/plain"
@@ -278,8 +301,10 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
     }
 
     private fun deleteSelectedFile(): Boolean {
-        deleteFromRoom(imgUri)
-        docsGrid.adapter = DocumentAdapter(this, imagesExistingList, this, OR_GRID)
+        deleteFromRoom(pdfPath)
+        Handler().postDelayed({
+            getRoomImagesList(null)
+        }, 2000)
         return baseContext.deleteFile(imgFile?.name)
     }
 
@@ -290,7 +315,7 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
         builder.setMessage("Are you sure you want to delete?");
         builder.setPositiveButton("continue") { dialog, which ->
             Log.i("Delete", "Result" + deleteSelectedFile())
-            mAdapter?.notifyDataSetChanged()
+//            mAdapter?.notifyDataSetChanged()
         };
         builder.setNegativeButton("Cancel") { dialog, which ->
             finish()
@@ -300,6 +325,15 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
 
     private fun hideBottomsheet() {
         var sheetBehavior = BottomSheetBehavior.from(bottom_sheet);
+        if (sheetBehavior.state == BottomSheetBehavior.STATE_EXPANDED) {
+            sheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED;
+            HandleFabMargin(false)
+        }
+    }
+
+
+    private fun hideBottomShareSheet() {
+        var sheetBehavior = BottomSheetBehavior.from(bottom_share_sheet);
         if (sheetBehavior.state == BottomSheetBehavior.STATE_EXPANDED) {
             sheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED;
             HandleFabMargin(false)
@@ -339,47 +373,17 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-//        if (resultCode == Activity.RESULT_OK) {
         when (requestCode) {
             REQUEST_TAKE_PHOTO -> {
-                //                val picBitmap: Bitmap = BitmapFactory.decodeFile(photoFile?.path)
-//                    UCrop.of(Uri.fromFile(photoFile),Uri.fromFile(getExternalFilesDir(Environment.DIRECTORY_DCIM)))
-//                        .start(this);
-                if (data != null) {
+                if (data != null && !data.hasExtra("GalleryPreview")) {
                     var resultUri = File(data!!.getStringExtra("filePath"))
-//                     = UCrop.getOutput(data!!)
                     var intent = Intent(this@MainActivity, FilterActivity::class.java)
                     intent.putExtra("image", resultUri.toString())
                     startActivity(intent)
-
                 }
-
-
             }
 
-//                UCrop.REQUEST_CROP -> {
-//                    when (resultCode) {
-//                        RESULT_OK -> {
-//                            var resultUri = UCrop.getOutput(data!!)
-//                            var intent = Intent(this@MainActivity, FilterActivity::class.java)
-//                            intent.putExtra("image", resultUri.toString())
-//                            startActivity(intent)
-//                        }
-//                        UCrop.RESULT_ERROR -> {
-//                            var error = UCrop.getError(data!!)
-//                            Toast.makeText(this@MainActivity, error?.message, Toast.LENGTH_SHORT).show()
-//                        }
-//                    }
-////                }
-//               /* 114 -> {
-//                    val data = intent.data
-//                    Log.i("Main", "File path: " + data!!.path)
-//                    val pdfIntent = Intent(this, PreViewActivity::class.java)
-//                    pdfIntent.data = data
-//                    startActivity(pdfIntent)
-//
-//                }*/
-//            }
+
         }
     }
 
@@ -389,8 +393,8 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
         if (progress.isVisible) {
             progress.visibility = GONE
             hideBottomsheet()
+            hideBottomShareSheet()
         }
-
 
     }
 
@@ -416,13 +420,13 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
         selectedPos = position
         imgUri = imagesExistingList!![position].path
         imgFile = File(Uri.parse(imgUri)?.path)
-
+        pdfPath = imagesExistingList!![position].pdfPath
         return true
     }
 
 
     override fun onPress(position: Int) {
-        imagesExistingList?.get(position)?.pdfPath?.let { openPdf(it) }
+        imagesExistingList?.get(position)?.let { openPdf(it) }
     }
 
     private fun HandleFabMargin(b: Boolean) {
@@ -447,23 +451,24 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
     }
 
 
-    private fun shareContent(imagUri: String) {
-        val imageUri =
-            Uri.parse(imagUri)
-        val intent = Intent()
-        intent.action = Intent.ACTION_SEND
-        intent.type = "image/jpeg"
-        intent.putExtra(Intent.EXTRA_STREAM, imageUri)
-        startActivity(Intent.createChooser(intent, getString(R.string.action_share)))
+    private fun shareContent() {
+        Log.e("MainActivity",""+pdfPath)
+        val outputFile = File(
+            pdfPath
+        )
+        val uri = FileProvider.getUriForFile(this@MainActivity, applicationContext.packageName + ".provider", outputFile);
+        val share = Intent()
+        share.action = Intent.ACTION_SEND
+        share.type = "application/pdf"
+        share.putExtra(Intent.EXTRA_STREAM, uri)
+        startActivity(Intent.createChooser(share, "Share"));
     }
 
-    fun openPdf(pdfPath: String) {
-        startActivity(
-            Intent(this@MainActivity, PreViewActivity::class.java).putExtra(
-                "PDF",
-                pdfPath
-            )
-        )
+    fun openPdf(pdf: PDFEntity) {
+        var intent = Intent(this@MainActivity, PreViewActivity::class.java)
+        intent.putExtra("PDF", pdf.pdfPath)         //pdf uri as string
+        intent.putExtra("IMG", pdf.path)        //path of image in pdf
+        startActivity(intent)
     }
 
     internal open class RoomTask(
@@ -482,6 +487,8 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
             pdf.path = image_Path.toString()
             pdf.time = image_Time.toString()
             pdf.pdfPath = pdf_.toString()
+
+
 
             DatabaseClient.getInstance(applicationContext())?.appDatabase
                 ?.pdfDao()?.insert(pdf)
@@ -506,27 +513,17 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
     ) :
         AsyncTask<String?, Void?, Void?>() {
         var image_Path: String? = imgPath
-        var delegate: RoomOperationCompleted? = null
 
         override fun doInBackground(vararg strings: String?): Void? {
-            val pdf = PDFEntity()
-            pdf.path = image_Path.toString()
 
             DatabaseClient.getInstance(applicationContext())?.appDatabase
-                ?.pdfDao()?.delete(pdf)
+                ?.pdfDao()?.deletePdf(image_Path)
 
-            Log.i(
-                "RoomTask",
-                "Check DB" + DatabaseClient.getInstance(applicationContext())?.appDatabase
-                    ?.pdfDao()?.getAll()
-            )
             return null
         }
 
         override fun onPostExecute(aVoid: Void?) {
             super.onPostExecute(aVoid)
-            delegate?.processFinish(null);
-
         }
     }
 
@@ -539,7 +536,7 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
         var delegate: RoomOperationCompleted? = null
 
         override fun doInBackground(vararg strings: String?): ArrayList<PDFEntity>? {
-            if (image_Path!=null) {
+            if (image_Path != null) {
                 val pdf = PDFEntity()
                 pdf.path = image_Path.toString()
                 return DatabaseClient.getInstance(applicationContext())?.appDatabase
@@ -555,6 +552,30 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
         }
     }
 
+
+    internal open class RoomDeleteDatabase(
+    ) :
+        AsyncTask<String?, Void?, Void?>() {
+
+        override fun doInBackground(vararg strings: String?): Void? {
+            //clear all data
+            DatabaseClient.getInstance(applicationContext())?.appDatabase
+                ?.pdfDao()?.emptyPDFTable()
+
+            Log.i(
+                "RoomTask",
+                "Check DB" + DatabaseClient.getInstance(applicationContext())?.appDatabase
+                    ?.pdfDao()?.getAll()
+            )
+            return null
+        }
+
+        override fun onPostExecute(aVoid: Void?) {
+            super.onPostExecute(aVoid)
+        }
+    }
+
+
     override fun processFinish(output: ArrayList<PDFEntity>?) {
         if (output.isNullOrEmpty() && !calledOnce) {
             calledOnce = !calledOnce
@@ -564,14 +585,33 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
             if (imagesExistingList?.isEmpty()!!
             ) {
                 initialLayout.visibility = VISIBLE
-
+                var deleteTask = RoomDeleteDatabase()
+                deleteTask.execute()
             } else {
                 imageLayout.visibility = VISIBLE
                 initialLayout.visibility = GONE
                 docsGrid.adapter =
-                    DocumentAdapter(this@MainActivity, imagesExistingList, this, OR_GRID)
+                    DocumentAdapter(this@MainActivity, imagesExistingList, this, orientation)
             }
+        }else{
+            mAdapter?.notifyDataSetChanged()
         }
     }
+    //clear all data
+//    DatabaseClient.getInstance(UscanApplication.applicationContext())?.appDatabase
+//    ?.pdfDao()?.emptyPDFTable()
 
+
+    override fun onBackPressed() {
+        var sheetBehavior = BottomSheetBehavior.from(bottom_sheet);
+        var shareSheetBehavior = BottomSheetBehavior.from(bottom_share_sheet);
+        if (sheetBehavior.state == BottomSheetBehavior.STATE_EXPANDED) {
+            hideBottomsheet()
+        }else if(shareSheetBehavior.state == BottomSheetBehavior.STATE_EXPANDED){
+            hideBottomShareSheet()
+        }else{
+            super.onBackPressed()
+        }
+
+    }
 }

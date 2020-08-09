@@ -1,7 +1,6 @@
 package com.src.uscan.ui;
 
 import android.annotation.SuppressLint;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
@@ -9,10 +8,8 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.widget.ImageView;
@@ -41,7 +38,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
-import static com.yalantis.ucrop.util.FileUtils.isExternalStorageDocument;
+import static com.yalantis.ucrop.UCrop.REQUEST_CROP;
 
 public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndStorageGrantedListener {
 
@@ -50,7 +47,9 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
     private static final int VIEW_IMAGE_REQUEST = 321;
     private static final int CAMERA_CODE = 2344;
     private static final int GALLERY_CODE = 2444;
+    private static final int GALLERY_PREVIEW_CODE = 2446;
     private static final int CROPPING_CODE = 2345;
+    private static final int CREATE_FILE_CODE = 1111;
     private PermissionUtils permissionUtils;
     private File outPutFile;
     private Uri mImageCaptureUri;
@@ -86,6 +85,12 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
             isCameraClicked = false;
             Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
             startActivityForResult(i, GALLERY_CODE);
+        }
+
+        if (getIntent().hasExtra("GalleryPreview")) {
+            isCameraClicked = false;
+            Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            startActivityForResult(i, GALLERY_PREVIEW_CODE);
         }
 
 
@@ -127,7 +132,7 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
 
         if (!openCamera.equalsIgnoreCase(""))
             OpenCamera();
-        else if (!getIntent().hasExtra("Gallery")){
+        else if (!getIntent().hasExtra("Gallery") && !getIntent().hasExtra("GalleryPreview")) {
             selectImageOption();
         }
     }
@@ -159,7 +164,6 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
                 isCameraClicked = true;
                 Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
                 if (takePictureIntent.resolveActivity(getPackageManager()) != null && outPutFile != null) {
-
                     mImageCaptureUri = FileProvider.getUriForFile(GetPhotoActivity.this, getPackageName() + ".provider", outPutFile);
                     takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, mImageCaptureUri);
                     startActivityForResult(takePictureIntent, CAMERA_CODE);
@@ -220,8 +224,6 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
             startActivityForResult(takePictureIntent, CAMERA_CODE);
         } else {
             Toast.makeText(this, "Something went wrong", Toast.LENGTH_SHORT).show();
-
-
             GetPhotoActivity.this.finish();
         }
 
@@ -244,13 +246,21 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
                     if (imageCroppingAppsListSize > 0) {
                         CroppingIMG();
                     } else {
-
-                        checkImageSizeAndSend(outPutFile);
-
+                        checkImageSizeAndSend(outPutFile, CAMERA_CODE);
 
                     }
 
                     break;
+
+                case GALLERY_PREVIEW_CODE:
+
+                    mImageCaptureUri = data.getData();
+                    System.out.println("Gallery Image URI : " + mImageCaptureUri);
+
+                    checkImageSizeAndSend(new File(ImageFilePath.getPath(GetPhotoActivity.this, data.getData())), GALLERY_PREVIEW_CODE);
+                    break;
+
+
 
                 case GALLERY_CODE:
 
@@ -262,8 +272,7 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
 //                        CroppingIMG();
 //                    } else {
 
-                    checkImageSizeAndSend(new File(ImageFilePath.getPath(GetPhotoActivity.this, data.getData())));
-
+                    checkImageSizeAndSend(new File(ImageFilePath.getPath(GetPhotoActivity.this, data.getData())), GALLERY_CODE);
 
 //                    ImageFilePath.getPath(GetPhotoActivity.this, data.getData());
 
@@ -271,11 +280,14 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
 
                     break;
 
+
+
+
                 case CROPPING_CODE:
 
                     try {
                         if (outPutFile.exists()) {
-                            checkImageSizeAndSend(outPutFile);
+                            checkImageSizeAndSend(outPutFile, CROPPING_CODE);
                         } else {
                             Toast.makeText(getApplicationContext(), "Error while saving", Toast.LENGTH_SHORT).show();
                             GetPhotoActivity.this.finish();
@@ -302,13 +314,13 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
                     GetPhotoActivity.this.finish();
                     break;
 
-                case UCrop.REQUEST_CROP:
+                case REQUEST_CROP:
                     final Uri resultUri = UCrop.getOutput(data);
 
                     outPutFile = new File(resultUri.getPath());
                     try {
                         if (outPutFile.exists()) {
-                            checkImageSizeAndSend(outPutFile);
+                            checkImageSizeAndSend(outPutFile, REQUEST_CROP);
                         } else {
                             Toast.makeText(getApplicationContext(), "Error while saving", Toast.LENGTH_SHORT).show();
                             GetPhotoActivity.this.finish();
@@ -363,40 +375,6 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
                     .withAspectRatio(8, 8)
                     .withMaxResultSize(512, 512)
                     .start(this);
-//        CropImage.activity(mImageCaptureUri)
-//                .start(this);
-
-//        Intent intent = new Intent("com.android.camera.action.CROP");
-//        intent.setType("image/*");
-//        List<ResolveInfo> list = this.getPackageManager().queryIntentActivities(intent, 0);
-//        int size = list.size();
-//        if (size == 0) {
-//            Toast.makeText(this, "Can't find image cropping app", Toast.LENGTH_SHORT).show();
-//        } else {
-//            intent.setData(mImageCaptureUri);
-//            //set crop properties
-//            intent.putExtra("crop", "true");
-//            //indicate aspect of desired crop
-//            intent.putExtra("aspectX", 1);
-//            intent.putExtra("aspectY", 1);
-//            //indicate output X and Y
-//            intent.putExtra("outputX", 512);
-//            intent.putExtra("outputY", 512);
-//            //Grant Permissions for the File
-//            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-//            //don't use return-data tag because it is returning large image data and crashing the app without any message
-//            //intent.putExtra("return-data", true);
-//            //Create output file here
-//            intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(outPutFile));
-//
-//            //start the activity - we handle returning in onActivityResult
-//            Intent i = new Intent(intent);
-//            ResolveInfo res = list.get(0);
-//            i.setComponent(new ComponentName(res.activityInfo.packageName, res.activityInfo.name));
-//            startActivityForResult(i, CROPPING_CODE);
-
-//            startActivityForResult(intent, CROPPING_CODE);
-//        }
     }
 
     public String getPath(Uri uri) {
@@ -426,7 +404,7 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
 
             if (imageFile.exists()) {
 
-                checkImageSizeAndSend(imageFile);
+                checkImageSizeAndSend(imageFile, CREATE_FILE_CODE);
             } else {
                 Toast.makeText(getApplicationContext(), "Error while saving", Toast.LENGTH_SHORT).show();
                 GetPhotoActivity.this.finish();
@@ -438,7 +416,7 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
         }
     }
 
-    private void checkImageSizeAndSend(File file) {
+    private void checkImageSizeAndSend(File file, int code) {
 
         if (file.exists()) {
 
@@ -464,7 +442,7 @@ public class GetPhotoActivity extends AppCompatActivity implements OnCameraAndSt
 
                 Intent intent1 = new Intent();
                 intent1.putExtra("filePath", file.getAbsolutePath());
-
+                intent1.putExtra("Code", code);
                 setResult(RESULT_OK, intent1);
                 GetPhotoActivity.this.finish();
 

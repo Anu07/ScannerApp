@@ -61,12 +61,13 @@
                 android:id="@+id/docsGrid"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_margin="5dp"
-                app:layoutManager="androidx.recyclerview.widget.GridLayoutManager"
-                app:spanCount="2" />
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp"/>
 
             <include layout="@layout/bottom_sheet" />
 
+
+            <include layout="@layout/bottom_share_sheet"/>
         </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
 

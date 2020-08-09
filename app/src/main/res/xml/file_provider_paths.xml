@@ -2,6 +2,11 @@
 <paths>
     <external-path
         name="my_images"
-        path="Android/data/com.src.uscan/files/Pictures"/>
+        path="Android/data/com.src.uscan/files/Pictures" />
+
+    <external-path
+        name="my_documents"
+        path="Android/data/com.src.uscan/files/Documents" />
+
     <!-- replace com.androidwave.filepicker with your package name -->
 </paths>

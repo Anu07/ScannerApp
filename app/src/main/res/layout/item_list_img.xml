@@ -1,70 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/linearParent"
-    android:layout_margin="8sp"
-    android:orientation="horizontal"
-    android:background="@android:color/white"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="120dp">
 
-
-
-    <com.makeramen.roundedimageview.RoundedImageView
-        android:id="@+id/imgDoc"
-        android:scaleType="fitCenter"
-        app:riv_corner_radius="30dip"
-        app:riv_border_width="2dip"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        app:riv_border_color="@android:color/black"
-        app:riv_mutate_background="true"
-        app:riv_tile_mode="repeat"
-        app:srcCompat="@drawable/docs_img"
-        app:riv_corner_radius_top_left="5dp"
-        app:riv_corner_radius_top_right="5dp"
-        app:riv_corner_radius_bottom_left="5dp"
-        app:riv_corner_radius_bottom_right="5dp"/>
-
-
-    <!--<ImageView
-        android:id="@+id/imgDoc"
-        android:layout_width="100dp"
-        android:layout_height="match_parent"
-        android:adjustViewBounds="true"
-        android:scaleType="fitXY"
-        android:visibility="gone"
-        android:background="@drawable/ic_baseline_add_circle_outline_24"/>-->
-
-    <LinearLayout android:id="@+id/detailLayout"
+    <LinearLayout
+        android:id="@+id/linearParent"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="center_vertical"
-        android:layout_toRightOf="@+id/imgDoc"
-        android:layout_marginLeft="5dp"
-        android:paddingTop="10dp"
-        android:gravity="center_vertical|right"
-        android:orientation="vertical">
+        android:background="@android:color/white"
+        android:orientation="horizontal"
+        android:padding="2dp">
 
-        <TextView android:id="@+id/docName"
-            android:layout_width="match_parent"
-            android:maxLength="15"
-            android:ellipsize="end"
-            android:gravity="left"
-            tools:text="Test"
-            android:textSize="16sp"
-            android:textColor="@color/colorPrimary"
-            android:layout_height="wrap_content"/>
 
-        <TextView android:id="@+id/subdocDetail"
+        <com.makeramen.roundedimageview.RoundedImageView
+            android:id="@+id/imgDoc"
+            android:layout_width="100dp"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="5dp"
+            android:scaleType="fitCenter"
+            app:riv_border_color="@android:color/black"
+            app:riv_border_width="2dip"
+            app:riv_corner_radius="30dip"
+            app:riv_corner_radius_bottom_left="5dp"
+            app:riv_corner_radius_bottom_right="5dp"
+            app:riv_corner_radius_top_left="5dp"
+            app:riv_corner_radius_top_right="5dp"
+            app:riv_mutate_background="true"
+            app:riv_tile_mode="repeat"
+            app:srcCompat="@drawable/docs_img" />
+
+
+        <!--<ImageView
+            android:id="@+id/imgDoc"
+            android:layout_width="100dp"
+            android:layout_height="match_parent"
+            android:adjustViewBounds="true"
+            android:scaleType="fitXY"
+            android:visibility="gone"
+            android:background="@drawable/ic_baseline_add_circle_outline_24"/>-->
+
+        <LinearLayout
+            android:id="@+id/detailLayout"
             android:layout_width="match_parent"
-            tools:text="07 Aug 2020 07:54"
-            android:layout_marginTop="10dp"
-            android:textSize="16sp"
-            android:textColor="@color/colorPrimary"
-            android:layout_height="wrap_content"/>
+            android:layout_height="match_parent"
+            android:layout_gravity="center_vertical"
+            android:layout_marginLeft="5dp"
+            android:layout_toRightOf="@+id/imgDoc"
+            android:gravity="top"
+            android:orientation="vertical"
+            android:paddingTop="20dp">
+
+            <TextView
+                android:id="@+id/docName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:gravity="left"
+                android:maxLength="15"
+                android:textColor="@color/colorPrimary"
+                android:textSize="16sp"
+                tools:text="Test" />
+
+            <TextView
+                android:id="@+id/subdocDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textColor="@color/colorPrimary"
+                android:textSize="12sp"
+                tools:text="07 Aug 2020 07:54" />
+        </LinearLayout>
+
+
     </LinearLayout>
 
-
-</LinearLayout>
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_alignParentBottom="true"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp"
+        android:layout_marginBottom="2dp"
+        android:background="#D3C6C6" />
+</RelativeLayout>

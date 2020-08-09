@@ -5,9 +5,9 @@
     android:id="@+id/linearParent"
     android:layout_margin="8sp"
     android:orientation="vertical"
-    android:layout_width="130dp"
+    android:layout_width="100dp"
     android:background="@android:color/white"
-    android:layout_height="250dp">
+    android:layout_height="200dp">
 
     <com.makeramen.roundedimageview.RoundedImageView
         android:id="@+id/imgDoc"
@@ -51,7 +51,7 @@
             android:ellipsize="end"
             android:gravity="left"
             tools:text="Test"
-            android:textSize="16sp"
+            android:textSize="13sp"
             android:textColor="@color/colorPrimary"
             android:layout_height="wrap_content"/>
 
@@ -59,7 +59,7 @@
             android:layout_width="match_parent"
             tools:text="07 Aug 2020 07:54"
             android:layout_marginTop="10dp"
-            android:textSize="16sp"
+            android:textSize="13sp"
             android:textColor="@color/colorPrimary"
             android:layout_height="wrap_content"/>
     </LinearLayout>

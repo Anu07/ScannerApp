@@ -41,7 +41,7 @@ class FilterActivity : AppCompatActivity() {
         supportActionBar?.hide()
         outPutFile =  File(intent.getStringExtra("image"))
         try {
-            originalMap = getScaledBitmap( outPutFile!!.absolutePath)
+            originalMap = getScaledBitmap( outPutFile!!.path)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -124,6 +124,7 @@ class FilterActivity : AppCompatActivity() {
         val image: Image = Image.getInstance(path)
         document.add(Paragraph(""))
         document.add(image)
+        document.setPageCount(1)
         val scaler: Float = (document.pageSize.width - document.leftMargin()
                 - document.rightMargin() - 0) / image.width * 100
         image.scalePercent(scaler)
