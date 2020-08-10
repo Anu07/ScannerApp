@@ -17,7 +17,7 @@ interface PdfDao {
     @Query("SELECT _images FROM pdf WHERE _pdfPath = :pdfPath")
     fun findSpecificIamgesEvent(pdfPath: String): List<String>?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = REPLACE)
     fun insert(pdf: PDFEntity?)
 
     @TypeConverters(StringConverter::class)

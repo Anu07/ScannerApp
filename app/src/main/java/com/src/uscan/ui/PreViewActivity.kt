@@ -18,16 +18,19 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
+import androidx.documentfile.provider.DocumentFile
 import androidx.recyclerview.widget.GridLayoutManager
 import com.github.barteksc.pdfviewer.listener.OnLoadCompleteListener
 import com.github.barteksc.pdfviewer.listener.OnPageChangeListener
 import com.github.barteksc.pdfviewer.listener.OnPageErrorListener
 import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle
 import com.google.android.material.bottomsheet.BottomSheetBehavior
-import com.itextpdf.text.Document
-import com.itextpdf.text.Image
-import com.itextpdf.text.PageSize
-import com.itextpdf.text.pdf.*
+import com.itextpdf.io.image.ImageDataFactory
+import com.itextpdf.kernel.geom.PageSize
+import com.itextpdf.kernel.pdf.PdfDocument
+import com.itextpdf.kernel.pdf.PdfWriter
+import com.itextpdf.layout.Document
+import com.itextpdf.layout.element.Image
 import com.src.uscan.BuildConfig
 import com.src.uscan.R
 import com.src.uscan.UscanApplication
@@ -39,8 +42,6 @@ import kotlinx.android.synthetic.main.bottom_sheet.*
 import kotlinx.android.synthetic.main.custom_pdf_toolbar.*
 import kotlinx.android.synthetic.main.preview_activity.*
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
@@ -49,12 +50,13 @@ import kotlin.collections.ArrayList
 class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadCompleteListener,
     OnPageErrorListener, LongPressListener, RoomOperationImageCompleted {
 
+    private var newImageAdded: Boolean = false
+    private var IMAGES: ArrayList<String> = ArrayList()
     private val GALLERYCODE: Int = 8888
     private var page: Int =1
     private var updatePDFPath:String?=""
     private var resultURI: Uri? = null
     private val REQUEST_TAKE_PHOTO: Int = 111
-    private var calledOnce: Boolean = false
     private var imgFile: File? = null
     private var imgUri: String = ""
     private var selectedPos: Int = -1
@@ -69,7 +71,7 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
         setContentView(R.layout.preview_activity)
 
         if (intent.hasExtra("image")) {
-            saveToRoom()
+//            saveToRoom()
 //            saveImagesInList()
             mAdapter?.notifyDataSetChanged()
         }
@@ -77,16 +79,23 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
         if (intent.hasExtra("PDF")) {
             pdfPath = intent.getStringExtra("PDF")
             imgPdfPath = intent.getStringExtra("IMG")
+            IMAGES.add(File(imgPdfPath).path)
             getRoomImagesList()
         }
 
         pdfPreview.setOnClickListener {
+            if(newImageAdded){
+                manipulatePdf()
+            }
             displayFromUri()
         }
         backNavigation.setOnClickListener {
             if (pdfView.isVisible) {
                 pdfView.visibility = GONE
                 imgRecView.visibility = VISIBLE
+                pdfPreview.visibility = VISIBLE
+                shareView.visibility = VISIBLE
+                overflow_menu.visibility = VISIBLE
             }else{
                 onBackPressed()
             }
@@ -114,12 +123,12 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
 
         more.setOnClickListener {
             hideBottomsheet()
-            startActivity(
-                Intent(this@PreViewActivity, MainActivity::class.java).putExtra(
+           /* startActivity(
+                Intent(this@PreViewActivity, FilterActivity::class.java).putExtra(
                     "image",
                     imgUri
                 )
-            )
+            )*/
         }
 
 
@@ -207,6 +216,7 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
     }
 
 
+
     private fun displayFromUri() {
         var pdfRoute = ""
         pdfRoute = if(updatePDFPath?.isNotEmpty()!!){
@@ -214,6 +224,9 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
         }else{
             pdfPath!!
         }
+        pdfPreview.visibility = GONE
+        shareView.visibility = GONE
+        overflow_menu.visibility = GONE
         Log.i("PDF","Route"+pdfRoute)
         val file = File(pdfRoute)
         if (file.exists()) {
@@ -243,6 +256,7 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
 
     private fun getRoomImagesList() {
         imagesPdfExistingList = ArrayList()
+        Log.i("PDF","Path key"+pdfPath)
         val ut = RoomGetTask(pdfPath)
         ut.delegate = this@PreViewActivity
         ut.execute()
@@ -272,18 +286,18 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
                     resultFileUri = File(data!!.getStringExtra("filePath"))
                     resultURI = Uri.fromFile(resultFileUri)
                     Log.i("Result", "PAth${resultFileUri!!.path}")
+                    imagesPdfExistingList?.add(resultURI.toString())
+                    newImageAdded = true
+                    mAdapter?.notifyDataSetChanged()
                     page++
                     saveToRoom()
-                    updatePDF(pdfPath!!, resultFileUri!!.path)
-                    Handler().postDelayed({
-                        getRoomImagesList()
-                    }, 3000)
+                    IMAGES.add(resultFileUri!!.path)
+//                    updatePDF(pdfPath!!, resultFileUri!!.path)
                 }
-
-
             }
         }
     }
+
 
     companion object {
         private val TAG = PreViewActivity::class.java.name
@@ -331,7 +345,7 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
         }
     }
 
-
+//        val ut = RoomTask(imgPdfPath, resultURI.toString(), pdfPath)
     internal open class RoomTask(
         originalImgPdf: String?,
         imageUri: String?,
@@ -350,26 +364,28 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
                     ?.pdfDao()?.findSpecificEvent(mainPath!!)
             Log.i("ORiginal", "IMAGES Path" + mainListObject?.size)
 
-            if (image_Path != "null") {
-                if (mainListObject?.isNotEmpty()!! && mainListObject?.get(0)?.images != null) {
-                    addImgPath = mainListObject?.get(0)?.images as ArrayList
-                    addImgPath.add(image_Path!!)
-                } else {
-                    addImgPath = ArrayList()
-                    addImgPath.add(originalJPGFromPDf!!)
-                    addImgPath.add(image_Path!!)
+            if(mainListObject?.size!!>0){
+                if (image_Path != "null") {
+                    if (mainListObject?.isNotEmpty()!! && mainListObject?.get(0)?.images != null) {
+                        addImgPath = mainListObject?.get(0)?.images as ArrayList
+                        addImgPath.add(image_Path!!)
+                    } else {
+                        addImgPath = ArrayList()
+                        addImgPath.add(originalJPGFromPDf!!)
+                        addImgPath.add(image_Path!!)
+                    }
+
+                    var pdfObj = PDFEntity()
+                    pdfObj.id = mainListObject?.get(0)?.id!!
+                    pdfObj.pdfPath = mainListObject?.get(0)?.pdfPath
+                    pdfObj.path = mainListObject?.get(0)?.path
+                    pdfObj.time = mainListObject?.get(0)?.time
+                    pdfObj.images = addImgPath
+                    Log.i("PReView", "IMAGES SIZe" + pdfObj?.images?.size)
+
+                    DatabaseClient.getInstance(UscanApplication.applicationContext())?.appDatabase
+                        ?.pdfDao()?.update(pdfObj)
                 }
-
-                var pdfObj = PDFEntity()
-                pdfObj.id = mainListObject?.get(0)?.id!!
-                pdfObj.pdfPath = mainListObject?.get(0)?.pdfPath
-                pdfObj.path = mainListObject?.get(0)?.path
-                pdfObj.time = mainListObject?.get(0)?.time
-                pdfObj.images = addImgPath
-                Log.i("PReView", "IMAGES SIZe" + pdfObj?.images?.size)
-
-                DatabaseClient.getInstance(UscanApplication.applicationContext())?.appDatabase
-                    ?.pdfDao()?.update(pdfObj)
             }
             return true
 
@@ -433,7 +449,6 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
             var listFetched =
                 DatabaseClient.getInstance(UscanApplication.applicationContext())?.appDatabase
                     ?.pdfDao()?.findSpecificIamgesEvent(image_Path!!) as ArrayList
-
             Log.e("Records", "not found" + listFetched.size)
             return listFetched
         }
@@ -475,12 +490,13 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
     }
 
     override fun processFinishImages(output: ArrayList<String>?) {
-        if (output.isNullOrEmpty() || !calledOnce) {
-            calledOnce = !calledOnce
-            saveToRoom()
+        if (output.isNullOrEmpty()) {
             getRoomImagesList()
         } else if (output != null && output?.isNotEmpty()!!) {
             imagesPdfExistingList = splitListToImagePath(output)
+            IMAGES = ArrayList()
+            imagesPdfExistingList?.let { IMAGES.addAll(it) }
+            Log.i("Check","size"+IMAGES.size)
             imgRecView.visibility = View.VISIBLE
             if (imagesPdfExistingList.isNullOrEmpty()) {
                 imagesPdfExistingList?.add(imgPdfPath!!)
@@ -509,30 +525,46 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
         return resultList
     }
 
+    @Throws(java.lang.Exception::class)
+    protected fun manipulatePdf() {
 
-    fun updatePDF(srcPdf:String,imagePath:String){
-        Log.i("Value", "Page no.$page")
-        if(imagePath.isNotEmpty()){
-            val outputImgFile = File(
-                imagePath
-            )
-            var destPdf = getDestinationPdfPath()
-            val reader = PdfReader(srcPdf)
-            val stamper = PdfStamper(reader, FileOutputStream(destPdf))
-            stamper.insertPage(reader.numberOfPages + 1,
-                reader.getPageSizeWithRotation(1));
-            val content: PdfContentByte = stamper.getOverContent(page)
-            val image: Image = Image.getInstance(outputImgFile.path)
-
-//        image.scaleAbsoluteHeight(50f)
-//        image.scaleAbsoluteWidth(image.width * 50 / image.height)
-            image.setAbsolutePosition(70f, 150f);
-            content.addImage(image);
-            stamper.close();
-            updatePDFPath = destPdf
-            updatePDFPathInDB()
+        var destPdf = getDestinationPdfPath()
+        var image =
+            Image(ImageDataFactory.create(IMAGES.get(0)))
+        val pdfDoc =
+            PdfDocument(PdfWriter(destPdf))
+        val doc = Document(
+            pdfDoc,
+            PageSize(image.imageWidth, image.imageHeight)
+        )
+        for (i in 0 until IMAGES.size) {
+            if(IMAGES[i]!=""){
+                image = Image(ImageDataFactory.create(IMAGES[i]))
+                pdfDoc.addNewPage(PageSize(image.imageWidth, image.imageHeight))
+                image.setFixedPosition(i + 1, 0f, 0f)
+                doc.add(image)
+            }
         }
+        doc.close()
+        val f =
+            File(pdfPath)
+        Log.e("Old file deleted","status"+f.delete())
+        updatePDFPath = destPdf
+        updatePDFPathInDB()
+        pdfPath = destPdf
+    }
 
+    override fun onBackPressed() {
+        super.onBackPressed()
+        if(newImageAdded){
+            manipulatePdf()
+        }
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+        getRoomImagesList()
     }
 
 
@@ -571,4 +603,21 @@ class PreViewActivity : AppCompatActivity(), OnPageChangeListener, OnLoadComplet
 
     }
 
+
+    private fun deletefile(uri: Uri, filename: String) {
+        val pickedDir: DocumentFile = DocumentFile.fromTreeUri(this, uri)!!
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+        }
+        val file: DocumentFile? = pickedDir.findFile(filename)
+        if (file?.delete()!!) Log.d(
+            "Log ID",
+            "Delete successful"
+        ) else Log.d("Log ID", "Delete unsuccessful")
+    }
 }

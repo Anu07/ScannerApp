@@ -13,14 +13,16 @@ import android.util.Log
 import android.view.Window
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.gms.ads.AdRequest
-import com.itextpdf.text.Document
-import com.itextpdf.text.Image
-import com.itextpdf.text.Paragraph
-import com.itextpdf.text.pdf.PdfWriter
+import com.itextpdf.io.image.ImageData
+import com.itextpdf.io.image.ImageDataFactory
+import com.itextpdf.kernel.pdf.PdfDocument
+import com.itextpdf.kernel.pdf.PdfWriter
+import com.itextpdf.layout.Document
+import com.itextpdf.layout.element.Image
+import com.itextpdf.layout.element.Paragraph
 import com.src.uscan.R
 import kotlinx.android.synthetic.main.activity_filter_preview.*
 import net.alhazmy13.imagefilter.ImageFilter
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -33,15 +35,16 @@ class FilterActivity : AppCompatActivity() {
     var bMap: Bitmap? = null
     private var pdf: String = ""
     private var outPutFile: File? = null
-    val document = Document()
+    val document: Document? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         this.requestWindowFeature(Window.FEATURE_NO_TITLE)
         setContentView(R.layout.activity_filter_preview)
         supportActionBar?.hide()
-        outPutFile =  File(intent.getStringExtra("image"))
+        outPutFile = File(intent.getStringExtra("image"))
+        Log.e("Path", "Generated" + outPutFile)
         try {
-            originalMap = getScaledBitmap( outPutFile!!.path)
+            originalMap = getScaledBitmap(outPutFile!!.path)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -49,7 +52,7 @@ class FilterActivity : AppCompatActivity() {
         saveImg.setOnClickListener {
             var imagestr: String = generateSelectedImageBitMap(selectedPos)!!.toString()
             val intent = Intent(this@FilterActivity, MainActivity::class.java)
-            intent.putExtra("image",imagestr)
+            intent.putExtra("image", imagestr)
             intent.putExtra("PDF", pdf)
 //            intent.putExtra("image",generateSelectedImageBitMap(selectedPos)!!.toString())
             intent.putExtra("image_time", System.currentTimeMillis().toString())
@@ -66,28 +69,43 @@ class FilterActivity : AppCompatActivity() {
         filter0.setOnClickListener {
             selectedPos = 0
             preViewImage.setImageBitmap(originalMap)
-          /*  Picasso.get().load(outPutFile!!)
-                .placeholder(ColorDrawable(R.drawable.ic_baseline_image_plcholder))
-                .into(preViewImage)*/
+            /*  Picasso.get().load(outPutFile!!)
+                  .placeholder(ColorDrawable(R.drawable.ic_baseline_image_plcholder))
+                  .into(preViewImage)*/
         }
         filter1.setOnClickListener {
             selectedPos = 1
-            preViewImage.setImageBitmap(ImageFilter.applyFilter(originalMap, ImageFilter.Filter.OIL))
+            preViewImage.setImageBitmap(
+                ImageFilter.applyFilter(
+                    originalMap,
+                    ImageFilter.Filter.OIL
+                )
+            )
 
-         /*   Picasso.get().load(getImageUri(this,ImageFilter.applyFilter(originalMap, ImageFilter.Filter.OIL)))
-                .placeholder(ColorDrawable(R.drawable.ic_baseline_image_plcholder))
-                .into(preViewImage)*/
+            /*   Picasso.get().load(getImageUri(this,ImageFilter.applyFilter(originalMap, ImageFilter.Filter.OIL)))
+                   .placeholder(ColorDrawable(R.drawable.ic_baseline_image_plcholder))
+                   .into(preViewImage)*/
         }
         filter2.setOnClickListener {
             selectedPos = 2
-            preViewImage.setImageBitmap(ImageFilter.applyFilter(originalMap, ImageFilter.Filter.SKETCH))
-           /* Picasso.get().load(getImageUri(this,ImageFilter.applyFilter(originalMap, ImageFilter.Filter.SKETCH)))
-                .placeholder(ColorDrawable(R.drawable.ic_baseline_image_plcholder))
-                .into(preViewImage)*/
+            preViewImage.setImageBitmap(
+                ImageFilter.applyFilter(
+                    originalMap,
+                    ImageFilter.Filter.SKETCH
+                )
+            )
+            /* Picasso.get().load(getImageUri(this,ImageFilter.applyFilter(originalMap, ImageFilter.Filter.SKETCH)))
+                 .placeholder(ColorDrawable(R.drawable.ic_baseline_image_plcholder))
+                 .into(preViewImage)*/
         }
         filter3.setOnClickListener {
             selectedPos = 3
-            preViewImage.setImageBitmap(ImageFilter.applyFilter(originalMap, ImageFilter.Filter.GRAY))
+            preViewImage.setImageBitmap(
+                ImageFilter.applyFilter(
+                    originalMap,
+                    ImageFilter.Filter.GRAY
+                )
+            )
 
             /*Picasso.get().load(getImageUri(this,ImageFilter.applyFilter(originalMap, ImageFilter.Filter.GRAY)))
                 .placeholder(ColorDrawable(R.drawable.ic_baseline_image_plcholder))
@@ -95,15 +113,50 @@ class FilterActivity : AppCompatActivity() {
         }
         filter4.setOnClickListener {
             selectedPos = 4
-            preViewImage.setImageBitmap(ImageFilter.applyFilter(originalMap, ImageFilter.Filter.HDR))
+            preViewImage.setImageBitmap(
+                ImageFilter.applyFilter(
+                    originalMap,
+                    ImageFilter.Filter.HDR
+                )
+            )
         }
 
     }
 
 
+//    private fun createPdf(path: String?): String {
+//// Create an image file name
+//        val timeStamp =
+//            SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
+//        val imageFileName = "PDF_" + timeStamp + "_"
+//        val root = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+//        val file = File(root, "$imageFileName.pdf")
+//        if (file.exists()) file.delete()
+//        try {
+//            val out = FileOutputStream(file)
+////            finalBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+//            out.flush()
+//            out.close()
+//            Log.i("PAth", "Filepath" + file.path)
+//        } catch (e: Exception) {
+//            e.printStackTrace()
+//        }
+//        PdfWriter.getInstance(document, FileOutputStream(file))
+//        document.open()
+//        val image: Image = Image.getInstance(path)
+//        document.add(Paragraph(""))
+//        document.add(image)
+//        document.setPageCount(1)
+//        val scaler: Float = (document.pageSize.width - document.leftMargin()
+//                - document.rightMargin() - 0) / image.width * 100
+//        image.scalePercent(scaler)
+//        Log.i("Pdf", "Filepath" +path+".pdf")
+//        document.close()
+//        return file.path
+//    }
 
-    private fun createPdf(path: String?): String {
-// Create an image file name
+
+    fun createPdf(path: String?): String {
         val timeStamp =
             SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
         val imageFileName = "PDF_" + timeStamp + "_"
@@ -119,20 +172,15 @@ class FilterActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        PdfWriter.getInstance(document, FileOutputStream(file))
-        document.open()
-        val image: Image = Image.getInstance(path)
-        document.add(Paragraph(""))
-        document.add(image)
-        document.setPageCount(1)
-        val scaler: Float = (document.pageSize.width - document.leftMargin()
-                - document.rightMargin() - 0) / image.width * 100
-        image.scalePercent(scaler)
-        Log.i("Pdf", "Filepath" +path+".pdf")
+        val pdfWriter = PdfWriter(FileOutputStream(file))
+        val pdfDocument = PdfDocument(pdfWriter)
+        val document = Document(pdfDocument)
+        val imageData: ImageData = ImageDataFactory.create(path)
+        val pdfImg = Image(imageData)
+        document.add(pdfImg)
         document.close()
         return file.path
     }
-
 
     private fun generateSelectedImageBitMap(pos: Int): Uri? {
         when (pos) {
@@ -172,7 +220,7 @@ class FilterActivity : AppCompatActivity() {
             out.flush()
             out.close()
             Log.i("PAth", "Filepath" + file.path)
-            pdf=createPdf(file.path)
+            pdf = createPdf(file.path)
             bMap?.recycle()
         } catch (e: Exception) {
             e.printStackTrace()
@@ -217,6 +265,7 @@ class FilterActivity : AppCompatActivity() {
         // Get the dimensions of the bitmap
         val bmOptions = BitmapFactory.Options()
         bmOptions.inJustDecodeBounds = true
+        Log.e("Path", "Generated" + mCurrentPhotoPath)
         BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions)
         val photoW = bmOptions.outWidth
         val photoH = bmOptions.outHeight

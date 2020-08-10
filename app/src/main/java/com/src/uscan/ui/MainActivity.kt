@@ -483,12 +483,13 @@ class MainActivity : AppCompatActivity(), LongPressListener, RoomOperationComple
         var delegate: RoomOperationCompleted? = null
 
         override fun doInBackground(vararg strings: String?): Void? {
+            var tempArray = ArrayList<String>()
+            tempArray.add(image_Path!!)
             val pdf = PDFEntity()
             pdf.path = image_Path.toString()
             pdf.time = image_Time.toString()
             pdf.pdfPath = pdf_.toString()
-
-
+            pdf.images = tempArray
 
             DatabaseClient.getInstance(applicationContext())?.appDatabase
                 ?.pdfDao()?.insert(pdf)
